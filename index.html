@@ -40,7 +40,7 @@
         <div class="hero-bg"></div>
         <div class="hero-map-side"></div>
         <div class="hero-content">
-          <div class="hero-badge">TUGAS SIG TERAPAN GEOMATIKA</div>
+          <div class="hero-badge">Nginapjogja</div>
           <h1 class="hero-title">
             WebGIS<br />
             Persebaran &amp;<br />
@@ -398,26 +398,34 @@
             </div>
             <div class="ltoggle" id="toggle-hotels"></div>
           </div>
-          <div class="layer-row">
+          <div
+            class="layer-row"
+            style="opacity: 0.5; cursor: not-allowed"
+            title="Coming soon"
+          >
             <div class="layer-row-left">
               <div class="ldot" style="background: #64748b"></div>
               <span class="lname">Jaringan Jalan</span>
             </div>
             <div class="ltoggle off"></div>
           </div>
-          <div class="layer-row">
+          <div
+            class="layer-row"
+            style="opacity: 0.5; cursor: not-allowed"
+            title="Coming soon"
+          >
             <div class="layer-row-left">
               <div class="ldot" style="background: #16a34a"></div>
               <span class="lname">Vegetation Area</span>
             </div>
             <div class="ltoggle off"></div>
           </div>
-          <div class="layer-row">
+          <div class="layer-row" onclick="toggleLayer('admin')">
             <div class="layer-row-left">
-              <div class="ldot" style="background: #2563eb"></div>
+              <div class="ldot" style="background: #e87d0d"></div>
               <span class="lname">Batas Administrasi</span>
             </div>
-            <div class="ltoggle off"></div>
+            <div class="ltoggle" id="toggle-admin"></div>
           </div>
         </div>
 
