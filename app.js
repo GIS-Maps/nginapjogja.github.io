@@ -35,6 +35,7 @@ let radiusLayer = null,
 let dirMode = false,
   dirFrom = null,
   dirTo = null;
+let adminLayerGroup = null; // batas wilayah Yogyakarta
 
 // ── Go to map ─────────────────────────────────────────────────
 function goToMap() {
@@ -66,6 +67,7 @@ function initMap() {
 
   HOTELS.forEach((h) => addMarker(h));
   buildSidebarList();
+  loadYogyaBoundary(); // muat batas wilayah otomatis
 
   map.on("mousemove", (e) => {
     const el = document.getElementById("cursor-coord");
@@ -81,6 +83,274 @@ function initMap() {
   map.on("click", onMapClick);
 
   toast("✅ " + HOTELS.length + " hotel berhasil dimuat");
+}
+
+// ─────────────────────────────────────────────────────────────
+// BATAS WILAYAH — Kota Yogyakarta + 14 Kecamatan
+// Priority: Overpass API (data resmi OSM) → fallback hardcoded
+// ─────────────────────────────────────────────────────────────
+async function loadYogyaBoundary() {
+  if (!adminLayerGroup) {
+    adminLayerGroup = L.layerGroup();
+  } else {
+    adminLayerGroup.clearLayers();
+  }
+  adminLayerGroup.addTo(map);
+
+  const sOuter = {
+    color: "#b487ea",
+    weight: 4,
+    fillColor: "#c871fb",
+    fillOpacity: 0.08,
+    interactive: false,
+  };
+
+  // Fetch dengan timeout
+  async function tFetch(url, opts, ms) {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), ms);
+    try {
+      const r = await fetch(url, { ...opts, signal: c.signal });
+      clearTimeout(t);
+      return r;
+    } catch (e) {
+      clearTimeout(t);
+      throw e;
+    }
+  }
+
+  let gotOuter = false,
+    gotKec = false;
+
+  // ─── 1. Batas LUAR via Nominatim (data resmi, 1 request) ───
+  try {
+    const r = await tFetch(
+      "https://nominatim.openstreetmap.org/search?q=Kota+Yogyakarta&format=json&polygon_geojson=1&limit=5&countrycodes=id",
+      { headers: { "Accept-Language": "id" } },
+      8000,
+    );
+    const d = await r.json();
+    const hit =
+      d.find(
+        (x) =>
+          x.geojson &&
+          x.class === "boundary" &&
+          (x.geojson.type === "Polygon" || x.geojson.type === "MultiPolygon"),
+      ) || d.find((x) => x.geojson && x.geojson.type !== "Point");
+    if (hit) {
+      L.geoJSON(hit.geojson, { style: sOuter }).addTo(adminLayerGroup);
+      gotOuter = true;
+    }
+  } catch (e) {
+    console.warn("Nominatim:", e.message);
+  }
+
+  // ─── 2. Batas KECAMATAN via Overpass ───────────────────────
+  try {
+    const q = `[out:json][timeout:20];
+area["name"="Kota Yogyakarta"]["admin_level"="5"]->.kota;
+relation["admin_level"="6"](area.kota);
+out geom;`;
+    const r = await tFetch(
+      "https://overpass-api.de/api/interpreter",
+      { method: "POST", body: "data=" + encodeURIComponent(q) },
+      15000,
+    );
+    const d = await r.json();
+    if (d.elements && d.elements.length > 0) {
+      d.elements.forEach((rel) => {
+        (rel.members || [])
+          .filter(
+            (m) => m.role === "outer" && m.geometry && m.geometry.length > 2,
+          )
+          .forEach((m) =>
+            L.polygon(
+              m.geometry.map((p) => [p.lat, p.lon]),
+              sKec,
+            ).addTo(adminLayerGroup),
+          );
+      });
+      gotKec = true;
+    }
+  } catch (e) {
+    console.warn("Overpass:", e.message);
+  }
+
+  // ─── 3. Fallback hardcoded jika API gagal ──────────────────
+  if (!gotOuter) {
+    L.polygon(
+      [
+        [-7.7525, 110.3335],
+        [-7.751, 110.3375],
+        [-7.75, 110.345],
+        [-7.7495, 110.353],
+        [-7.7492, 110.3612],
+        [-7.7493, 110.3695],
+        [-7.7495, 110.3775],
+        [-7.75, 110.3855],
+        [-7.7512, 110.3935],
+        [-7.7532, 110.4005],
+        [-7.7562, 110.4068],
+        [-7.7605, 110.4108],
+        [-7.7665, 110.4125],
+        [-7.7735, 110.4118],
+        [-7.7802, 110.4095],
+        [-7.7862, 110.4058],
+        [-7.7918, 110.4002],
+        [-7.7965, 110.3948],
+        [-7.8005, 110.3912],
+        [-7.8048, 110.3888],
+        [-7.8088, 110.3865],
+        [-7.8128, 110.3842],
+        [-7.8162, 110.3815],
+        [-7.8185, 110.3778],
+        [-7.8198, 110.3732],
+        [-7.8195, 110.3682],
+        [-7.8182, 110.363],
+        [-7.8162, 110.3578],
+        [-7.8132, 110.3528],
+        [-7.8092, 110.3485],
+        [-7.8045, 110.3448],
+        [-7.7995, 110.3415],
+        [-7.794, 110.3385],
+        [-7.7878, 110.336],
+        [-7.7812, 110.334],
+        [-7.774, 110.3328],
+        [-7.7665, 110.3325],
+        [-7.7588, 110.3325],
+        [-7.7525, 110.333],
+      ],
+      sOuter,
+    ).addTo(adminLayerGroup);
+  }
+
+  if (!gotKec) {
+    [
+      // Tegalrejo
+      [
+        [-7.7525, 110.333],
+        [-7.7492, 110.361],
+        [-7.766, 110.361],
+        [-7.766, 110.333],
+      ],
+      // Jetis
+      [
+        [-7.7492, 110.361],
+        [-7.7493, 110.37],
+        [-7.766, 110.37],
+        [-7.766, 110.361],
+      ],
+      // Gondokusuman
+      [
+        [-7.7493, 110.37],
+        [-7.75, 110.3855],
+        [-7.7562, 110.4068],
+        [-7.7665, 110.4125],
+        [-7.7802, 110.4095],
+        [-7.7802, 110.37],
+        [-7.766, 110.37],
+      ],
+      // Wirobrajan
+      [
+        [-7.766, 110.333],
+        [-7.766, 110.361],
+        [-7.78, 110.361],
+        [-7.78, 110.333],
+      ],
+      // Gedongtengen
+      [
+        [-7.766, 110.361],
+        [-7.766, 110.37],
+        [-7.78, 110.37],
+        [-7.78, 110.361],
+      ],
+      // Danurejan
+      [
+        [-7.766, 110.37],
+        [-7.766, 110.38],
+        [-7.78, 110.38],
+        [-7.78, 110.37],
+      ],
+      // Ngampilan
+      [
+        [-7.78, 110.361],
+        [-7.78, 110.37],
+        [-7.794, 110.37],
+        [-7.794, 110.361],
+      ],
+      // Gondomanan
+      [
+        [-7.78, 110.37],
+        [-7.78, 110.38],
+        [-7.794, 110.38],
+        [-7.794, 110.37],
+      ],
+      // Kraton
+      [
+        [-7.78, 110.38],
+        [-7.7802, 110.4095],
+        [-7.7918, 110.4002],
+        [-7.794, 110.39],
+        [-7.794, 110.38],
+      ],
+      // Pakualaman/Kraton barat
+      [
+        [-7.78, 110.333],
+        [-7.78, 110.361],
+        [-7.794, 110.361],
+        [-7.794, 110.333],
+      ],
+      // Mantrijeron
+      [
+        [-7.794, 110.333],
+        [-7.794, 110.361],
+        [-7.8195, 110.361],
+        [-7.8162, 110.3578],
+        [-7.8132, 110.3528],
+        [-7.8045, 110.3448],
+        [-7.7995, 110.3415],
+        [-7.794, 110.3385],
+      ],
+      // Mergangsan
+      [
+        [-7.794, 110.361],
+        [-7.794, 110.38],
+        [-7.8195, 110.38],
+        [-7.8195, 110.361],
+      ],
+      // Umbulharjo
+      [
+        [-7.794, 110.38],
+        [-7.794, 110.39],
+        [-7.7918, 110.4002],
+        [-7.7965, 110.3948],
+        [-7.8048, 110.3888],
+        [-7.8128, 110.3842],
+        [-7.8185, 110.3778],
+        [-7.8198, 110.3732],
+        [-7.8195, 110.38],
+      ],
+      // Kotagede
+      [
+        [-7.8195, 110.361],
+        [-7.8195, 110.38],
+        [-7.8198, 110.3732],
+        [-7.8185, 110.3778],
+        [-7.8162, 110.3815],
+        [-7.8195, 110.368],
+        [-7.8182, 110.363],
+        [-7.8162, 110.3578],
+        [-7.8195, 110.361],
+      ],
+    ].forEach((c) => L.polygon(c, sKec).addTo(adminLayerGroup));
+  }
+
+  // Markers tetap di depan
+  Object.values(markerMap).forEach(({ marker }) => {
+    try {
+      marker.bringToFront();
+    } catch {}
+  });
 }
 
 // ── Markers ───────────────────────────────────────────────────
@@ -311,9 +581,25 @@ function useMyLocation() {
 async function getDirections() {
   const fromVal = document.getElementById("dir-from").value.trim();
   const toVal = document.getElementById("dir-to").value.trim();
-  if (!toVal) {
-    toast("⚠️ Masukkan tujuan");
+  if (!fromVal && !dirFrom) {
+    toast("⚠️ Masukkan titik awal atau gunakan lokasi Anda");
     return;
+  }
+  if (!toVal && !dirTo) {
+    toast("⚠️ Masukkan tujuan hotel");
+    return;
+  }
+
+  toast("🔍 Mencari koordinat...");
+
+  // Resolve origin
+  if (!dirFrom) {
+    const r = await geocode(fromVal);
+    if (!r) {
+      toast("❌ Titik awal tidak ditemukan. Coba nama jalan / landmark.");
+      return;
+    }
+    dirFrom = r;
   }
 
   // Resolve destination
@@ -325,67 +611,110 @@ async function getDirections() {
       dirTo = [found.lat, found.lng];
     } else {
       const r = await geocode(toVal);
-      if (r) dirTo = r;
-      else {
-        toast("❌ Tujuan tidak ditemukan");
+      if (!r) {
+        toast("❌ Tujuan tidak ditemukan.");
         return;
       }
-    }
-  }
-
-  // Resolve origin
-  if (!dirFrom) {
-    if (!fromVal) {
-      toast("⚠️ Masukkan titik awal atau gunakan lokasi Anda");
-      return;
-    }
-    const r = await geocode(fromVal);
-    if (r) dirFrom = r;
-    else {
-      toast("❌ Titik awal tidak ditemukan");
-      return;
+      dirTo = r;
     }
   }
 
   toast("🛣️ Menghitung rute...");
-  clearRoute();
 
-  const url = `https://router.project-osrm.org/route/v1/driving/${dirFrom[1]},${dirFrom[0]};${dirTo[1]},${dirTo[0]}?overview=full&geometries=geojson`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.code !== "Ok") {
-      toast("❌ Rute tidak ditemukan");
-      return;
+  // Hapus rute lama (tapi simpan dirFrom/dirTo)
+  if (routeLayer) {
+    map.removeLayer(routeLayer);
+    routeLayer = null;
+  }
+  routeMarkers.forEach((m) => map.removeLayer(m));
+  routeMarkers = [];
+
+  // Coba beberapa OSRM endpoint (fallback)
+  const OSRM_URLS = [
+    `https://router.project-osrm.org/route/v1/driving/${dirFrom[1]},${dirFrom[0]};${dirTo[1]},${dirTo[0]}?overview=full&geometries=geojson`,
+    `https://routing.openstreetmap.de/routed-car/route/v1/driving/${dirFrom[1]},${dirFrom[0]};${dirTo[1]},${dirTo[0]}?overview=full&geometries=geojson`,
+  ];
+
+  let success = false;
+  for (const url of OSRM_URLS) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.code !== "Ok" || !data.routes.length) continue;
+
+      const route = data.routes[0];
+      const coords = route.geometry.coordinates.map((c) => [c[1], c[0]]);
+      const dist = (route.distance / 1000).toFixed(1);
+      const time = Math.round(route.duration / 60);
+
+      // Gambar rute di peta
+      routeLayer = L.polyline(coords, {
+        color: "#1A73E8",
+        weight: 6,
+        opacity: 0.85,
+      }).addTo(map);
+
+      // Shadow rute (efek Google Maps)
+      L.polyline(coords, {
+        color: "#0D47A1",
+        weight: 8,
+        opacity: 0.25,
+      }).addTo(map);
+      routeMarkers.push(routeLayer);
+
+      // Marker A dan B
+      const mkA = L.marker(dirFrom, {
+        icon: pinIcon("A", "#16A34A"),
+        zIndexOffset: 1000,
+      })
+        .addTo(map)
+        .bindPopup("📍 <b>Titik Awal</b>")
+        .openPopup();
+      const mkB = L.marker(dirTo, {
+        icon: pinIcon("B", "#DC2626"),
+        zIndexOffset: 1000,
+      })
+        .addTo(map)
+        .bindPopup("🏨 <b>Tujuan</b>");
+      routeMarkers.push(mkA, mkB);
+
+      map.fitBounds(routeLayer.getBounds(), { padding: [60, 60] });
+
+      const result = document.getElementById("dir-result");
+      result.innerHTML = `🛣️ <b>${dist} km</b> &nbsp;·&nbsp; ⏱️ <b>${time} menit</b> mengemudi`;
+      result.style.display = "block";
+      toast(`✅ Rute ditemukan: ${dist} km · ${time} menit`);
+      success = true;
+      break;
+    } catch (e) {
+      continue; // coba endpoint berikutnya
     }
+  }
 
-    const route = data.routes[0];
-    const coords = route.geometry.coordinates.map((c) => [c[1], c[0]]);
-    const dist = (route.distance / 1000).toFixed(1);
-    const time = Math.round(route.duration / 60);
-
-    routeLayer = L.polyline(coords, {
-      color: "#2563EB",
-      weight: 5,
-      opacity: 0.85,
-      dashArray: null,
+  if (!success) {
+    // Fallback: gambar garis lurus
+    routeLayer = L.polyline([dirFrom, dirTo], {
+      color: "#1A73E8",
+      weight: 4,
+      opacity: 0.7,
+      dashArray: "10,8",
     }).addTo(map);
-
-    // Markers A and B
+    routeMarkers.push(routeLayer);
     const mkA = L.marker(dirFrom, { icon: pinIcon("A", "#16A34A") })
       .addTo(map)
-      .bindPopup("Titik Awal");
+      .bindPopup("📍 Titik Awal")
+      .openPopup();
     const mkB = L.marker(dirTo, { icon: pinIcon("B", "#DC2626") })
       .addTo(map)
-      .bindPopup("Tujuan");
+      .bindPopup("🏨 Tujuan");
     routeMarkers.push(mkA, mkB);
-
-    map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
-    document.getElementById("dir-result").innerHTML =
-      `🛣️ <b>${dist} km</b> · ⏱️ <b>${time} menit</b> mengemudi`;
-    document.getElementById("dir-result").style.display = "block";
-  } catch (e) {
-    toast("❌ Gagal menghitung rute");
+    map.fitBounds(routeLayer.getBounds(), { padding: [60, 60] });
+    const d = (map.distance(dirFrom, dirTo) / 1000).toFixed(1);
+    const result = document.getElementById("dir-result");
+    result.innerHTML = `📏 Jarak lurus: <b>${d} km</b> <small style="color:#D97706">(rute jalan tidak tersedia saat ini)</small>`;
+    result.style.display = "block";
+    toast("⚠️ Server routing sibuk, menampilkan jarak lurus");
   }
 }
 
@@ -404,15 +733,22 @@ function clearRoute() {
     map.removeLayer(routeLayer);
     routeLayer = null;
   }
-  routeMarkers.forEach((m) => map.removeLayer(m));
+  routeMarkers.forEach((m) => {
+    try {
+      map.removeLayer(m);
+    } catch {}
+  });
   routeMarkers = [];
   dirFrom = null;
   dirTo = null;
   document.getElementById("dir-from").value = "";
   document.getElementById("dir-to").value = "";
   const r = document.getElementById("dir-result");
-  r.innerHTML = "";
-  r.style.display = "none";
+  if (r) {
+    r.innerHTML = "";
+    r.style.display = "none";
+  }
+  toast("✕ Rute dihapus");
 }
 
 function pinIcon(label, color) {
@@ -569,6 +905,24 @@ function toggleLayer(type) {
     );
     document.getElementById("toggle-hotels").classList.toggle("off", vis);
     toast(vis ? "🙈 Hotel disembunyikan" : "👁️ Hotel ditampilkan");
+  } else if (type === "admin") {
+    const el = document.getElementById("toggle-admin");
+    if (!adminLayerGroup) {
+      toast("⏳ Memuat batas wilayah...");
+      loadYogyaBoundary().then(() => {
+        el && el.classList.remove("off");
+      });
+      return;
+    }
+    if (map.hasLayer(adminLayerGroup)) {
+      map.removeLayer(adminLayerGroup);
+      el && el.classList.add("off");
+      toast("🙈 Batas administrasi disembunyikan");
+    } else {
+      adminLayerGroup.addTo(map);
+      el && el.classList.remove("off");
+      toast("👁️ Batas administrasi ditampilkan");
+    }
   }
 }
 
