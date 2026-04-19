@@ -171,7 +171,7 @@ body {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-image: url("https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=1920&q=80");
+  background-image: url("img/photo1.jpg");
   background-size: cover;
   background-position: center;
   filter: brightness(0.35) saturate(0.8);
@@ -276,7 +276,7 @@ body {
   bottom: 0;
   width: 55%;
   z-index: 1;
-  background-image: url("https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=960&q=80");
+  background-image: url("img/photo1.jpg");
   background-size: cover;
   background-position: center left;
   opacity: 0.22;
