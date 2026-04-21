@@ -398,28 +398,7 @@
             </div>
             <div class="ltoggle" id="toggle-hotels"></div>
           </div>
-          <div
-            class="layer-row"
-            style="opacity: 0.5; cursor: not-allowed"
-            title="Coming soon"
-          >
-            <div class="layer-row-left">
-              <div class="ldot" style="background: #64748b"></div>
-              <span class="lname">Jaringan Jalan</span>
-            </div>
-            <div class="ltoggle off"></div>
-          </div>
-          <div
-            class="layer-row"
-            style="opacity: 0.5; cursor: not-allowed"
-            title="Coming soon"
-          >
-            <div class="layer-row-left">
-              <div class="ldot" style="background: #16a34a"></div>
-              <span class="lname">Vegetation Area</span>
-            </div>
-            <div class="ltoggle off"></div>
-          </div>
+
           <div class="layer-row" onclick="toggleLayer('admin')">
             <div class="layer-row-left">
               <div class="ldot" style="background: #e87d0d"></div>
@@ -684,6 +663,34 @@
             <div class="d-sec-title">○ PROXIMITY TO LANDMARKS</div>
             <div class="prox-lm" id="d-prox"></div>
           </div>
+
+          <!-- WSM Scoring -->
+          <div class="d-section">
+            <div class="d-sec-title">○ WSM SCORE — Weighted Sum Model</div>
+            <div
+              id="d-wsm"
+              style="
+                background: var(--bg);
+                border-radius: 8px;
+                padding: 0.75rem;
+                border: 1px solid var(--border);
+              "
+            >
+              —
+            </div>
+            <div
+              style="
+                margin-top: 0.5rem;
+                font-size: 0.65rem;
+                color: var(--muted);
+                line-height: 1.5;
+              "
+            >
+              Metode: WSM = Σ(bobot × nilai ternormalisasi)<br />
+              Bobot: Heritage 30% · Connectivity 25% · Efisiensi 25% · Geodesign
+              20%
+            </div>
+          </div>
         </div>
       </div>
 
@@ -863,6 +870,52 @@
           </div>
         </div>
 
+        <!-- WSM Ranking Table -->
+        <div class="an-card an-card-full">
+          <div class="an-card-header">
+            <div class="an-card-title">
+              ◈ WSM RANKING — Weighted Sum Model (Modul Acara 5)
+            </div>
+            <div class="an-epsg">
+              Bobot: Heritage 30% · Connectivity 25% · Efisiensi 25% · Geodesign
+              20%
+            </div>
+          </div>
+          <div class="an-card-body">
+            <div
+              style="
+                font-size: 0.72rem;
+                color: var(--muted);
+                margin-bottom: 0.75rem;
+                line-height: 1.6;
+              "
+            >
+              <b>Metode WSM</b> mengevaluasi setiap hotel berdasarkan 4 kriteria
+              yang dinormalisasi lalu dikalikan bobot masing-masing. Skor akhir
+              pada skala 0–10. Rumus:
+              <span style="font-family: var(--mono)"
+                >WSM = 0.30×Heritage + 0.25×Connectivity + 0.25×Efisiensi +
+                0.20×Geodesign</span
+              >
+            </div>
+            <table class="prox-table">
+              <thead>
+                <tr>
+                  <th>RANK</th>
+                  <th>HOTEL</th>
+                  <th>KECAMATAN</th>
+                  <th>KATEGORI</th>
+                  <th>WSM SCORE</th>
+                  <th>HERITAGE</th>
+                  <th>CONNECTIVITY</th>
+                  <th>EFISIENSI</th>
+                </tr>
+              </thead>
+              <tbody id="wsm-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Density distribution chart -->
         <div class="an-card an-card-full">
           <div class="an-card-header">
@@ -885,8 +938,8 @@
     <script src="app.js"></script>
 
     <script>
-      // Avg capacity
       window.addEventListener("DOMContentLoaded", () => {
+        // Update total count
         const el = document.getElementById("avg-cap");
         if (el && typeof HOTELS !== "undefined") {
           const avg = Math.round(
@@ -894,6 +947,13 @@
           );
           el.textContent = avg + "%";
         }
+        // Update entity count in analysis
+        const tc = document.querySelector(".an-sum-val");
+        if (tc && typeof HOTELS !== "undefined") tc.textContent = HOTELS.length;
+        // Update sidebar count
+        const sc = document
+          .querySelector("#hotel-list")
+          ?.previousElementSibling?.querySelector("span:last-child");
       });
     </script>
   </body>
