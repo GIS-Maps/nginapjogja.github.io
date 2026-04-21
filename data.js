@@ -1,6 +1,23 @@
 /* ============================================================
-   DATA.JS — Hotel Dataset, 42 Entitas, Yogyakarta
-   WebGIS SIG Terapan — Geomatika
+   DATA.JS — Hotel Dataset, 52 Entitas, KOTA Yogyakarta Only
+   WebGIS SIG Terapan — Geomatika UPN "Veteran" Yogyakarta
+
+   FOTO HOTEL — Cara input foto real (3 opsi):
+   1. URL website hotel langsung:
+      photo: "https://namahotel.com/images/front.jpg"
+   2. Google Places Photo (butuh API Key GCP):
+      photo: "https://maps.googleapis.com/maps/api/place/photo?maxwidth=420&photoreference=PHOTO_REF&key=API_KEY"
+   3. Simpan foto ke folder /img/ lalu:
+      photo: "img/nama-hotel.jpg"
+
+   Hotel di luar Kota Yogyakarta yang telah DIHAPUS:
+   × Hyatt Regency (Ngaglik/Sleman)
+   × Royal Ambarrukmo (Depok/Sleman)
+   × Grand Mercure Adi Sucipto (Depok/Sleman)
+   × Sheraton Mustika Resort (Sleman)
+   × Rich Jogja Hotel (Mlati/Sleman)
+   × Alana Hotel (Ngaglik/Sleman)
+   × Premiere Park Hotel (Banguntapan/Bantul)
    ============================================================ */
 
 const YOGYA_CENTER = [-7.7956, 110.3695];
@@ -14,7 +31,6 @@ const CAT_META = {
   Butik: { color: "#0B9F97", bg: "rgba(11,159,151,.10)", label: "BOUTIQUE" },
 };
 
-/* Unsplash photo IDs mapped to hotel categories */
 const PHOTOS = {
   b5: [
     "https://images.unsplash.com/photo-1551882547-ff40c4a49f8e?w=420&q=80",
@@ -35,15 +51,70 @@ const PHOTOS = {
     "https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=420&q=80",
     "https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=420&q=80",
     "https://images.unsplash.com/photo-1551776235-dde6d482980b?w=420&q=80",
+    "https://images.unsplash.com/photo-1596436889106-be35e843f974?w=420&q=80",
   ],
   b2: [
     "https://images.unsplash.com/photo-1586611292717-f828b167408c?w=420&q=80",
     "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?w=420&q=80",
+    "https://images.unsplash.com/photo-1595576508898-0ad5c879a061?w=420&q=80",
+  ],
+  butik: [
+    "https://images.unsplash.com/photo-1587985064135-0366536eab42?w=420&q=80",
+    "https://images.unsplash.com/photo-1605346434674-a440ca4dc4c0?w=420&q=80",
   ],
 };
 
-const HOTELS = [
-  /* ── BINTANG 5 ── */
+/* ============================================================
+   WSM — Weighted Sum Model (Modul Acara 5 SIG Terapan UPN)
+
+   Rumus: WSM = Σ (bobot_i × nilai_ternormalisasi_i)
+
+   Kriteria         │ Bobot │ Normalisasi
+   ─────────────────┼───────┼──────────────────────────────
+   Heritage Prox.   │ 0.30  │ skor dari klasifikasi landuse
+   Connectivity     │ 0.25  │ nilai / 100
+   Service Efisiensi│ 0.25  │ (100 - serviceLoad) / 100
+   Geodesign Score  │ 0.20  │ nilai / 10
+   ─────────────────┴───────┴──────────────────────────────
+   Skor akhir dikali 10 → skala 0–10
+   ============================================================ */
+const WSM_WEIGHTS = {
+  heritage: 0.3,
+  connectivity: 0.25,
+  efficiency: 0.25,
+  geodesign: 0.2,
+};
+
+const HERITAGE_SCORE = {
+  "Kawasan Heritage": 1.0,
+  "Zonasi Cagar Budaya": 1.0,
+  "Kawasan Kraton": 0.9,
+  "Kawasan Bersejarah": 0.8,
+  "Kawasan Pariwisata": 0.7,
+  "Komersial/Jasa": 0.4,
+  "Kawasan Campuran": 0.3,
+  "Ruang Terbuka Hijau": 0.3,
+  Permukiman: 0.2,
+};
+
+function calcWSM(h) {
+  const h_norm = Math.max(...h.landuse.map((l) => HERITAGE_SCORE[l] || 0.2));
+  const c_norm = h.connectivity / 100;
+  const e_norm = (100 - h.serviceLoad) / 100;
+  const g_norm = h.geodesign / 10;
+  const raw =
+    WSM_WEIGHTS.heritage * h_norm +
+    WSM_WEIGHTS.connectivity * c_norm +
+    WSM_WEIGHTS.efficiency * e_norm +
+    WSM_WEIGHTS.geodesign * g_norm;
+  return +(raw * 10).toFixed(1);
+}
+
+/* ============================================================
+   DATASET — 52 Hotel, Kota Yogyakarta (14 Kecamatan)
+   ============================================================ */
+const HOTELS_RAW = [
+  /* ═══ BINTANG 5 ════════════════════════════════════════ */
   {
     id: "YK-HTL-401",
     name: "Grand Inna Malioboro",
@@ -88,7 +159,7 @@ const HOTELS = [
     connectivity: 92,
     serviceLoad: 64,
     notes:
-      "Subject located within the heritage corridor (Kawasan Cagar Budaya Jetis). Height regulation max 18m verified per 2023 spatial audit.",
+      "Dalam koridor heritage Kawasan Cagar Budaya Jetis. Regulasi tinggi bangunan max 18m.",
   },
   {
     id: "YK-HTL-403",
@@ -111,7 +182,7 @@ const HOTELS = [
     connectivity: 96,
     serviceLoad: 58,
     notes:
-      "Hotel bintang 5 dengan konsep budaya Jawa kontemporer. Aksesibilitas pejalan kaki sangat baik.",
+      "Hotel bintang 5 konsep budaya Jawa kontemporer. Aksesibilitas pejalan kaki sangat baik.",
   },
   {
     id: "YK-HTL-404",
@@ -137,98 +208,6 @@ const HOTELS = [
       "Hotel MICE terbesar di pusat kota. Kapasitas konvensi mendukung kegiatan skala internasional.",
   },
   {
-    id: "YK-HTL-405",
-    name: "Hyatt Regency Yogyakarta",
-    category: "Bintang 5",
-    stars: 5,
-    lat: -7.7778,
-    lng: 110.3803,
-    address: "Jl. Palagan Tentara Pelajar, Sariharjo",
-    kecamatan: "Ngaglik",
-    rooms: 269,
-    capacity: 76,
-    phone: "(0274) 869123",
-    distance_tugu: "4.2 km dari Tugu",
-    dist_malio: "4.5 km",
-    dist_kraton: "5.1 km",
-    photo: PHOTOS.b5[4],
-    landuse: ["Kawasan Pariwisata", "Ruang Terbuka Hijau"],
-    geodesign: 9.1,
-    connectivity: 78,
-    serviceLoad: 45,
-    notes:
-      "Kawasan utara dengan RTH signifikan. Vegetasi index tertinggi di antara hotel bintang 5.",
-  },
-  {
-    id: "YK-HTL-406",
-    name: "Royal Ambarrukmo Yogyakarta",
-    category: "Bintang 5",
-    stars: 5,
-    lat: -7.783,
-    lng: 110.395,
-    address: "Jl. Laksda Adisucipto No.81, Caturtunggal",
-    kecamatan: "Depok",
-    rooms: 237,
-    capacity: 82,
-    phone: "(0274) 488488",
-    distance_tugu: "5.1 km dari Tugu",
-    dist_malio: "5.3 km",
-    dist_kraton: "4.9 km",
-    photo: PHOTOS.b5[0],
-    landuse: ["Kawasan Pariwisata", "Kawasan Bersejarah"],
-    geodesign: 8.5,
-    connectivity: 87,
-    serviceLoad: 61,
-    notes:
-      "Komplek hotel warisan Keraton Ambarrukmo. Nilai heritage tinggi, dilindungi SK Bupati Sleman.",
-  },
-  {
-    id: "YK-HTL-407",
-    name: "Grand Mercure Yogyakarta Adi Sucipto",
-    category: "Bintang 5",
-    stars: 5,
-    lat: -7.782,
-    lng: 110.394,
-    address: "Jl. Laksda Adisucipto No.38, Caturtunggal",
-    kecamatan: "Depok",
-    rooms: 185,
-    capacity: 88,
-    phone: "(0274) 484888",
-    distance_tugu: "4.9 km dari Tugu",
-    dist_malio: "5.1 km",
-    dist_kraton: "4.7 km",
-    photo: PHOTOS.b5[1],
-    landuse: ["Kawasan Pariwisata", "Komersial/Jasa"],
-    geodesign: 8.0,
-    connectivity: 85,
-    serviceLoad: 68,
-    notes:
-      "Dekat Bandara Adisutjipto. Tingkat hunian tinggi pada hari kerja, dominan tamu bisnis.",
-  },
-  {
-    id: "YK-HTL-408",
-    name: "Sheraton Mustika Yogyakarta Resort & Spa",
-    category: "Bintang 5",
-    stars: 5,
-    lat: -7.8058,
-    lng: 110.4031,
-    address: "Jl. Laksda Adisucipto Km 8.7",
-    kecamatan: "Umbulharjo",
-    rooms: 234,
-    capacity: 73,
-    phone: "(0274) 488588",
-    distance_tugu: "5.5 km dari Tugu",
-    dist_malio: "5.8 km",
-    dist_kraton: "5.2 km",
-    photo: PHOTOS.b5[2],
-    landuse: ["Kawasan Pariwisata", "Ruang Terbuka Hijau"],
-    geodesign: 8.6,
-    connectivity: 80,
-    serviceLoad: 52,
-    notes:
-      "Resort mewah dengan SPA kelas dunia. Fasilitas kolam renang olimpik mendukung wisatawan premium.",
-  },
-  {
     id: "YK-HTL-409",
     name: "Tugu Yogyakarta Hotel",
     category: "Bintang 5",
@@ -243,16 +222,16 @@ const HOTELS = [
     distance_tugu: "0.1 km dari Tugu",
     dist_malio: "0.2 km",
     dist_kraton: "1.7 km",
-    photo: PHOTOS.b5[3],
+    photo: PHOTOS.b5[4],
     landuse: ["Kawasan Heritage", "Komersial/Jasa"],
     geodesign: 8.9,
     connectivity: 97,
     serviceLoad: 48,
     notes:
-      "Butik hotel bintang 5 ikonik di samping Tugu Yogyakarta. Koleksi artefak seni Jawa klasik yang unik.",
+      "Butik hotel bintang 5 ikonik di samping Tugu Yogyakarta. Koleksi artefak seni Jawa klasik.",
   },
 
-  /* ── BINTANG 4 ── */
+  /* ═══ BINTANG 4 ════════════════════════════════════════ */
   {
     id: "YK-HTL-410",
     name: "Harper Malioboro by ASTON",
@@ -320,7 +299,7 @@ const HOTELS = [
     connectivity: 88,
     serviceLoad: 52,
     notes:
-      "Desain bangunan mempertimbangkan koridor pandang visual ke Merapi. Sesuai RTBL Koridor Sudirman.",
+      "Desain mempertimbangkan koridor pandang visual ke Merapi. Sesuai RTBL Koridor Sudirman.",
   },
   {
     id: "YK-HTL-413",
@@ -343,7 +322,7 @@ const HOTELS = [
     connectivity: 82,
     serviceLoad: 59,
     notes:
-      "Kawasan transisi komersial-permukiman. Dampak terhadap jaringan jalan perlu monitoring berkelanjutan.",
+      "Kawasan transisi komersial-permukiman. Dampak terhadap jaringan jalan perlu monitoring.",
   },
   {
     id: "YK-HTL-414",
@@ -366,7 +345,7 @@ const HOTELS = [
     connectivity: 79,
     serviceLoad: 66,
     notes:
-      "Kawasan timur kota dengan aksesibilitas berkembang pesat. Infrastruktur jalan dalam kondisi baik.",
+      "Kawasan timur kota aksesibilitas berkembang pesat. Infrastruktur jalan dalam kondisi baik.",
   },
   {
     id: "YK-HTL-415",
@@ -389,7 +368,7 @@ const HOTELS = [
     connectivity: 76,
     serviceLoad: 54,
     notes:
-      "Koridor selatan menuju Parangtritis. Potensi wisata alam tinggi, aksesibilitas sedang berkembang.",
+      "Koridor selatan menuju Parangtritis. Potensi wisata alam tinggi, aksesibilitas berkembang.",
   },
   {
     id: "YK-HTL-416",
@@ -412,30 +391,7 @@ const HOTELS = [
     connectivity: 95,
     serviceLoad: 78,
     notes:
-      "Hotel convention scale besar di pusat kota. Ballroom kapasitas 2000 pax mendukung MICE.",
-  },
-  {
-    id: "YK-HTL-417",
-    name: "Rich Jogja Hotel",
-    category: "Bintang 4",
-    stars: 4,
-    lat: -7.771,
-    lng: 110.362,
-    address: "Jl. Magelang Km 4, Sinduadi",
-    kecamatan: "Mlati",
-    rooms: 148,
-    capacity: 65,
-    phone: "(0274) 865500",
-    distance_tugu: "2.8 km dari Tugu",
-    dist_malio: "3.1 km",
-    dist_kraton: "4.2 km",
-    photo: PHOTOS.b4[2],
-    landuse: ["Komersial/Jasa", "Kawasan Campuran"],
-    geodesign: 6.9,
-    connectivity: 72,
-    serviceLoad: 48,
-    notes:
-      "Koridor barat laut menuju Magelang. Segmen tamu wisatawan keluarga mendominasi.",
+      "Hotel convention skala besar di pusat kota. Ballroom kapasitas 2000 pax mendukung MICE.",
   },
   {
     id: "YK-HTL-418",
@@ -443,7 +399,7 @@ const HOTELS = [
     category: "Bintang 4",
     stars: 4,
     lat: -7.7815,
-    lng: 110.3893,
+    lng: 110.3845,
     address: "Jl. Laksda Adisucipto No.48, Demangan",
     kecamatan: "Gondokusuman",
     rooms: 176,
@@ -452,36 +408,13 @@ const HOTELS = [
     distance_tugu: "2.4 km dari Tugu",
     dist_malio: "2.6 km",
     dist_kraton: "2.8 km",
-    photo: PHOTOS.b4[3],
+    photo: PHOTOS.b4[2],
     landuse: ["Komersial/Jasa", "Kawasan Campuran"],
     geodesign: 7.2,
     connectivity: 83,
     serviceLoad: 55,
     notes:
-      "Hotel bisnis di koridor timur dekat bandara. Aksesibilitas kendaraan bermotor sangat baik.",
-  },
-  {
-    id: "YK-HTL-419",
-    name: "Alana Hotel & Convention Center",
-    category: "Bintang 4",
-    stars: 4,
-    lat: -7.769,
-    lng: 110.3803,
-    address: "Jl. Palagan Tentara Pelajar Km 7",
-    kecamatan: "Ngaglik",
-    rooms: 203,
-    capacity: 71,
-    phone: "(0274) 867123",
-    distance_tugu: "4.5 km dari Tugu",
-    dist_malio: "4.8 km",
-    dist_kraton: "5.5 km",
-    photo: PHOTOS.b4[4],
-    landuse: ["Kawasan Pariwisata", "Ruang Terbuka Hijau"],
-    geodesign: 7.5,
-    connectivity: 74,
-    serviceLoad: 49,
-    notes:
-      "Kawasan utara dengan green space memadai. Convention center mendukung kegiatan skala regional.",
+      "Hotel bisnis di koridor timur kota. Aksesibilitas kendaraan bermotor sangat baik.",
   },
   {
     id: "YK-HTL-420",
@@ -489,7 +422,7 @@ const HOTELS = [
     category: "Bintang 4",
     stars: 4,
     lat: -7.7862,
-    lng: 110.3914,
+    lng: 110.3852,
     address: "Jl. Laksda Adisucipto No.28, Demangan",
     kecamatan: "Gondokusuman",
     rooms: 189,
@@ -498,7 +431,7 @@ const HOTELS = [
     distance_tugu: "2.6 km dari Tugu",
     dist_malio: "2.8 km",
     dist_kraton: "3.0 km",
-    photo: PHOTOS.b4[0],
+    photo: PHOTOS.b4[3],
     landuse: ["Komersial/Jasa", "Kawasan Campuran"],
     geodesign: 7.0,
     connectivity: 81,
@@ -507,37 +440,61 @@ const HOTELS = [
       "Kolam renang outdoor dengan view taman. Fasilitas spa dan fitness center lengkap.",
   },
   {
-    id: "YK-HTL-421",
-    name: "Premiere Park Hotel Wonosari",
+    id: "YK-HTL-443",
+    name: "Grand Tjokro Yogyakarta",
     category: "Bintang 4",
     stars: 4,
-    lat: -7.824,
-    lng: 110.4078,
-    address: "Jl. Wonosari Km 9, Banguntapan",
-    kecamatan: "Banguntapan",
-    rooms: 134,
-    capacity: 61,
-    phone: "(0274) 442244",
-    distance_tugu: "7.1 km dari Tugu",
-    dist_malio: "7.4 km",
-    dist_kraton: "6.8 km",
-    photo: PHOTOS.b4[1],
-    landuse: ["Kawasan Pariwisata", "Kawasan Campuran"],
-    geodesign: 6.8,
-    connectivity: 67,
-    serviceLoad: 42,
+    lat: -7.8015,
+    lng: 110.3895,
+    address: "Jl. Gowongan Kidul No.50, Semaki",
+    kecamatan: "Umbulharjo",
+    rooms: 162,
+    capacity: 71,
+    phone: "(0274) 543555",
+    distance_tugu: "3.0 km dari Tugu",
+    dist_malio: "2.8 km",
+    dist_kraton: "2.4 km",
+    photo: PHOTOS.b4[4],
+    landuse: ["Komersial/Jasa", "Kawasan Campuran"],
+    geodesign: 7.0,
+    connectivity: 78,
+    serviceLoad: 60,
     notes:
-      "Hotel transit di jalan Wonosari. Melayani wisatawan menuju Gunungkidul dan pantai selatan.",
+      "Hotel bisnis modern Umbulharjo. Fasilitas ballroom dan ruang meeting lengkap.",
   },
 
-  /* ── BINTANG 3 ── */
+  {
+    id: "YK-HTL-445",
+    name: "Grand Palace Hotel Yogyakarta",
+    category: "Bintang 4",
+    stars: 4,
+    lat: -7.7976,
+    lng: 110.373,
+    address: "Jl. Mangkuyudan No.1, Mantrijeron",
+    kecamatan: "Mantrijeron",
+    rooms: 138,
+    capacity: 73,
+    phone: "(0274) 371000",
+    distance_tugu: "2.2 km dari Tugu",
+    dist_malio: "2.0 km",
+    dist_kraton: "1.2 km",
+    photo: PHOTOS.b4[1],
+    landuse: ["Kawasan Pariwisata", "Komersial/Jasa"],
+    geodesign: 7.4,
+    connectivity: 84,
+    serviceLoad: 62,
+    notes:
+      "Dekat kawasan Kraton dan Taman Sari. Konsep heritage dengan fasilitas modern.",
+  },
+
+  /* ═══ BINTANG 3 ════════════════════════════════════════ */
   {
     id: "YK-HTL-422",
     name: "Artotel Yogyakarta",
     category: "Bintang 3",
     stars: 3,
-    lat: -7.8001,
-    lng: 110.3686,
+    lat: -7.798,
+    lng: 110.3742,
     address: "Jl. Kaliurang No.14, Baciro",
     kecamatan: "Gondokusuman",
     rooms: 109,
@@ -638,13 +595,13 @@ const HOTELS = [
     distance_tugu: "2.5 km dari Tugu",
     dist_malio: "2.3 km",
     dist_kraton: "1.8 km",
-    photo: PHOTOS.b3[0],
+    photo: PHOTOS.b3[4],
     landuse: ["Kawasan Pariwisata", "Permukiman"],
     geodesign: 6.9,
     connectivity: 77,
     serviceLoad: 58,
     notes:
-      "Kawasan Prawirotaman sebagai pusat hotel butik. Karakteristik kampung wisata kepadatan rendah.",
+      "Kawasan Prawirotaman pusat hotel butik. Karakteristik kampung wisata kepadatan rendah.",
   },
   {
     id: "YK-HTL-427",
@@ -661,7 +618,7 @@ const HOTELS = [
     distance_tugu: "3.1 km dari Tugu",
     dist_malio: "2.9 km",
     dist_kraton: "2.5 km",
-    photo: PHOTOS.b3[1],
+    photo: PHOTOS.b3[0],
     landuse: ["Permukiman", "Komersial/Jasa"],
     geodesign: 6.3,
     connectivity: 74,
@@ -684,7 +641,7 @@ const HOTELS = [
     distance_tugu: "2.2 km dari Tugu",
     dist_malio: "2.0 km",
     dist_kraton: "2.4 km",
-    photo: PHOTOS.b3[2],
+    photo: PHOTOS.b3[1],
     landuse: ["Komersial/Jasa", "Kawasan Campuran"],
     geodesign: 7.2,
     connectivity: 86,
@@ -707,7 +664,7 @@ const HOTELS = [
     distance_tugu: "0.7 km dari Tugu",
     dist_malio: "0.5 km",
     dist_kraton: "1.3 km",
-    photo: PHOTOS.b3[3],
+    photo: PHOTOS.b3[2],
     landuse: ["Kawasan Pariwisata", "Komersial/Jasa"],
     geodesign: 7.0,
     connectivity: 90,
@@ -730,7 +687,7 @@ const HOTELS = [
     distance_tugu: "0.9 km dari Tugu",
     dist_malio: "0.7 km",
     dist_kraton: "1.5 km",
-    photo: PHOTOS.b3[0],
+    photo: PHOTOS.b3[3],
     landuse: ["Kawasan Pariwisata", "Komersial/Jasa"],
     geodesign: 6.9,
     connectivity: 88,
@@ -753,7 +710,7 @@ const HOTELS = [
     distance_tugu: "0.4 km dari Tugu",
     dist_malio: "0.2 km",
     dist_kraton: "1.1 km",
-    photo: PHOTOS.b3[1],
+    photo: PHOTOS.b3[4],
     landuse: ["Kawasan Heritage", "Komersial/Jasa"],
     geodesign: 6.7,
     connectivity: 94,
@@ -776,7 +733,7 @@ const HOTELS = [
     distance_tugu: "2.7 km dari Tugu",
     dist_malio: "2.5 km",
     dist_kraton: "2.0 km",
-    photo: PHOTOS.b3[2],
+    photo: PHOTOS.b3[0],
     landuse: ["Kawasan Pariwisata", "Permukiman"],
     geodesign: 6.8,
     connectivity: 75,
@@ -799,7 +756,7 @@ const HOTELS = [
     distance_tugu: "1.4 km dari Tugu",
     dist_malio: "1.2 km",
     dist_kraton: "1.0 km",
-    photo: PHOTOS.b3[3],
+    photo: PHOTOS.b3[1],
     landuse: ["Kawasan Pariwisata", "Komersial/Jasa"],
     geodesign: 6.9,
     connectivity: 85,
@@ -822,7 +779,7 @@ const HOTELS = [
     distance_tugu: "2.8 km dari Tugu",
     dist_malio: "2.6 km",
     dist_kraton: "2.2 km",
-    photo: PHOTOS.b3[0],
+    photo: PHOTOS.b3[2],
     landuse: ["Komersial/Jasa", "Permukiman"],
     geodesign: 6.4,
     connectivity: 73,
@@ -845,7 +802,7 @@ const HOTELS = [
     distance_tugu: "2.1 km dari Tugu",
     dist_malio: "1.5 km",
     dist_kraton: "0.3 km",
-    photo: PHOTOS.b3[1],
+    photo: PHOTOS.b3[3],
     landuse: ["Kawasan Heritage", "Kawasan Kraton"],
     geodesign: 7.3,
     connectivity: 80,
@@ -868,7 +825,7 @@ const HOTELS = [
     distance_tugu: "2.4 km dari Tugu",
     dist_malio: "1.9 km",
     dist_kraton: "1.6 km",
-    photo: PHOTOS.b3[2],
+    photo: PHOTOS.b3[4],
     landuse: ["Komersial/Jasa", "Permukiman"],
     geodesign: 6.5,
     connectivity: 76,
@@ -876,6 +833,285 @@ const HOTELS = [
     notes:
       "Hotel konvensional dengan kolam renang. Dekat pusat perbelanjaan dan rumah makan lokal.",
   },
+  {
+    id: "YK-HTL-446",
+    name: "Hotel Garuda Yogyakarta",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.7935,
+    lng: 110.3685,
+    address: "Jl. Malioboro No.72, Ngupasan",
+    kecamatan: "Gondomanan",
+    rooms: 103,
+    capacity: 76,
+    phone: "(0274) 562353",
+    distance_tugu: "0.6 km dari Tugu",
+    dist_malio: "0.2 km",
+    dist_kraton: "0.8 km",
+    photo: PHOTOS.b3[0],
+    landuse: ["Kawasan Heritage", "Komersial/Jasa"],
+    geodesign: 7.1,
+    connectivity: 93,
+    serviceLoad: 72,
+    notes:
+      "Salah satu hotel tertua di kawasan Malioboro. Nilai historis dan posisi strategis sangat tinggi.",
+  },
+  {
+    id: "YK-HTL-447",
+    name: "Hotel Limaran Yogyakarta",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.7975,
+    lng: 110.3628,
+    address: "Jl. Wirobrajan No.5, Pakuncen",
+    kecamatan: "Wirobrajan",
+    rooms: 78,
+    capacity: 63,
+    phone: "(0274) 374100",
+    distance_tugu: "1.8 km dari Tugu",
+    dist_malio: "1.6 km",
+    dist_kraton: "1.7 km",
+    photo: PHOTOS.b3[1],
+    landuse: ["Komersial/Jasa", "Permukiman"],
+    geodesign: 6.4,
+    connectivity: 75,
+    serviceLoad: 55,
+    notes:
+      "Hotel budget bintang 3 di kawasan Wirobrajan. Sasaran tamu keluarga dan wisatawan lokal.",
+  },
+  {
+    id: "YK-HTL-448",
+    name: "Hotel Grand Dafam Rohan Jogja",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.8005,
+    lng: 110.3672,
+    address: "Jl. Parangtritis No.99, Mantrijeron",
+    kecamatan: "Mantrijeron",
+    rooms: 91,
+    capacity: 67,
+    phone: "(0274) 382900",
+    distance_tugu: "2.3 km dari Tugu",
+    dist_malio: "2.0 km",
+    dist_kraton: "1.4 km",
+    photo: PHOTOS.b3[2],
+    landuse: ["Kawasan Pariwisata", "Komersial/Jasa"],
+    geodesign: 6.8,
+    connectivity: 79,
+    serviceLoad: 59,
+    notes:
+      "Kawasan selatan menuju wisata alam Parangtritis. Konsep desain minimalis kontemporer.",
+  },
+  {
+    id: "YK-HTL-449",
+    name: "Rumah Berbudaya Kotagede",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.8122,
+    lng: 110.3845,
+    address: "Jl. Kemasan No.14, Purbayan",
+    kecamatan: "Kotagede",
+    rooms: 45,
+    capacity: 55,
+    phone: "(0274) 385123",
+    distance_tugu: "4.0 km dari Tugu",
+    dist_malio: "3.8 km",
+    dist_kraton: "2.9 km",
+    photo: PHOTOS.b3[3],
+    landuse: ["Kawasan Heritage", "Kawasan Bersejarah"],
+    geodesign: 7.6,
+    connectivity: 68,
+    serviceLoad: 44,
+    notes:
+      "Hotel heritage di kawasan Kotagede, pusat kerajinan perak warisan Mataram Islam.",
+  },
+
+  {
+    id: "YK-HTL-451",
+    name: "Grand Rohan Jogja Hotel",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.7962,
+    lng: 110.3558,
+    address: "Jl. Nitikan No.15, Ngampilan",
+    kecamatan: "Ngampilan",
+    rooms: 84,
+    capacity: 72,
+    phone: "(0274) 383838",
+    distance_tugu: "2.1 km dari Tugu",
+    dist_malio: "1.9 km",
+    dist_kraton: "2.0 km",
+    photo: PHOTOS.b3[0],
+    landuse: ["Kawasan Pariwisata", "Komersial/Jasa"],
+    geodesign: 6.7,
+    connectivity: 77,
+    serviceLoad: 61,
+    notes:
+      "Hotel di kawasan Ngampilan. Jarak kaki ke Malioboro sekitar 20 menit.",
+  },
+  {
+    id: "YK-HTL-452",
+    name: "Hotel Matahari Prawirotaman",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.8048,
+    lng: 110.3688,
+    address: "Jl. Prawirotaman No.15, Brontokusuman",
+    kecamatan: "Mergangsan",
+    rooms: 70,
+    capacity: 65,
+    phone: "(0274) 372120",
+    distance_tugu: "2.6 km dari Tugu",
+    dist_malio: "2.4 km",
+    dist_kraton: "1.9 km",
+    photo: PHOTOS.b3[1],
+    landuse: ["Kawasan Pariwisata", "Permukiman"],
+    geodesign: 6.6,
+    connectivity: 74,
+    serviceLoad: 57,
+    notes:
+      "Salah satu hotel tertua di kawasan Prawirotaman. Arsitektur tradisional Jawa yang terawat.",
+  },
+  {
+    id: "YK-HTL-453",
+    name: "Hotel Bintang Fajar Umbulharjo",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.8038,
+    lng: 110.391,
+    address: "Jl. Veteran No.147, Warungboto",
+    kecamatan: "Umbulharjo",
+    rooms: 68,
+    capacity: 61,
+    phone: "(0274) 519211",
+    distance_tugu: "3.5 km dari Tugu",
+    dist_malio: "3.3 km",
+    dist_kraton: "2.8 km",
+    photo: PHOTOS.b3[2],
+    landuse: ["Komersial/Jasa", "Permukiman"],
+    geodesign: 6.2,
+    connectivity: 71,
+    serviceLoad: 53,
+    notes:
+      "Hotel ekonomis di kawasan Umbulharjo. Akses mudah ke kampus UGM dan UNY.",
+  },
+  {
+    id: "YK-HTL-454",
+    name: "Hotel Dalem Puri Pakualaman",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.7972,
+    lng: 110.3765,
+    address: "Jl. Sultan Agung No.8, Purwokinanti",
+    kecamatan: "Pakualaman",
+    rooms: 58,
+    capacity: 59,
+    phone: "(0274) 376543",
+    distance_tugu: "1.6 km dari Tugu",
+    dist_malio: "1.4 km",
+    dist_kraton: "0.9 km",
+    photo: PHOTOS.b3[3],
+    landuse: ["Kawasan Heritage", "Kawasan Pariwisata"],
+    geodesign: 7.0,
+    connectivity: 82,
+    serviceLoad: 52,
+    notes:
+      "Dekat Pura Pakualaman. Arsitektur hotel terinspirasi budaya Pakualaman, nilai heritage tinggi.",
+  },
+  {
+    id: "YK-HTL-455",
+    name: "Cakra Kusuma Hotel Yogyakarta",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.7898,
+    lng: 110.371,
+    address: "Jl. Kaliurang No.47, Baciro",
+    kecamatan: "Gondokusuman",
+    rooms: 95,
+    capacity: 74,
+    phone: "(0274) 589700",
+    distance_tugu: "1.7 km dari Tugu",
+    dist_malio: "1.5 km",
+    dist_kraton: "1.8 km",
+    photo: PHOTOS.b3[4],
+    landuse: ["Kawasan Pariwisata", "Komersial/Jasa"],
+    geodesign: 6.9,
+    connectivity: 86,
+    serviceLoad: 65,
+    notes:
+      "Hotel bintang 3 fasilitas lengkap. Dekat kampus UGM dan RS Panti Rapih.",
+  },
+  {
+    id: "YK-HTL-456",
+    name: "Hotel Sriwijaya Malioboro",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.7958,
+    lng: 110.3645,
+    address: "Jl. Mataram No.13, Suryatmajan",
+    kecamatan: "Danurejan",
+    rooms: 87,
+    capacity: 80,
+    phone: "(0274) 562371",
+    distance_tugu: "0.8 km dari Tugu",
+    dist_malio: "0.3 km",
+    dist_kraton: "0.9 km",
+    photo: PHOTOS.b3[0],
+    landuse: ["Kawasan Heritage", "Komersial/Jasa"],
+    geodesign: 7.0,
+    connectivity: 91,
+    serviceLoad: 76,
+    notes:
+      "Lokasi strategis di kawasan Danurejan dekat Malioboro. Melayani wisatawan heritage.",
+  },
+  {
+    id: "YK-HTL-462",
+    name: "Hotel Kotagede Heritage",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.8145,
+    lng: 110.3878,
+    address: "Jl. Tegalgendu No.8, Kotagede",
+    kecamatan: "Kotagede",
+    rooms: 52,
+    capacity: 50,
+    phone: "(0274) 385600",
+    distance_tugu: "4.3 km dari Tugu",
+    dist_malio: "4.1 km",
+    dist_kraton: "3.2 km",
+    photo: PHOTOS.b3[1],
+    landuse: ["Kawasan Heritage", "Kawasan Bersejarah"],
+    geodesign: 7.4,
+    connectivity: 65,
+    serviceLoad: 42,
+    notes:
+      "Hotel heritage Kotagede dalam bangunan cagar budaya. Pengalaman menginap autentik.",
+  },
+  {
+    id: "YK-HTL-463",
+    name: "Hotel Griya Persada Danurejan",
+    category: "Bintang 3",
+    stars: 3,
+    lat: -7.796,
+    lng: 110.3712,
+    address: "Jl. Bhayangkara No.4, Suryatmajan",
+    kecamatan: "Danurejan",
+    rooms: 55,
+    capacity: 68,
+    phone: "(0274) 562800",
+    distance_tugu: "1.0 km dari Tugu",
+    dist_malio: "0.7 km",
+    dist_kraton: "0.8 km",
+    photo: PHOTOS.b3[2],
+    landuse: ["Kawasan Heritage", "Komersial/Jasa"],
+    geodesign: 6.9,
+    connectivity: 87,
+    serviceLoad: 64,
+    notes:
+      "Hotel budget di kawasan Danurejan. Dekat pusat belanja Malioboro dan Pasar Beringharjo.",
+  },
+
+  /* ═══ BUTIK ════════════════════════════════════════════ */
   {
     id: "YK-HTL-437",
     name: "Greenhost Boutique Hotel",
@@ -891,7 +1127,7 @@ const HOTELS = [
     distance_tugu: "2.8 km dari Tugu",
     dist_malio: "2.6 km",
     dist_kraton: "2.1 km",
-    photo: PHOTOS.b4[3],
+    photo: PHOTOS.butik[0],
     landuse: ["Kawasan Pariwisata", "Permukiman"],
     geodesign: 7.8,
     connectivity: 74,
@@ -899,8 +1135,54 @@ const HOTELS = [
     notes:
       "Eco-boutique hotel dengan konsep berkelanjutan. Panel surya dan sistem air daur ulang.",
   },
+  {
+    id: "YK-HTL-457",
+    name: "Dalem Brontokusuman Heritage",
+    category: "Butik",
+    stars: 4,
+    lat: -7.8058,
+    lng: 110.366,
+    address: "Jl. Brontokusuman No.23, Brontokusuman",
+    kecamatan: "Mergangsan",
+    rooms: 22,
+    capacity: 55,
+    phone: "(0274) 372888",
+    distance_tugu: "2.5 km dari Tugu",
+    dist_malio: "2.3 km",
+    dist_kraton: "1.7 km",
+    photo: PHOTOS.butik[1],
+    landuse: ["Kawasan Heritage", "Kawasan Pariwisata"],
+    geodesign: 8.2,
+    connectivity: 72,
+    serviceLoad: 43,
+    notes:
+      "Heritage boutique hotel di bangunan Belanda 1920-an. Hanya 22 kamar, pengalaman autentik.",
+  },
+  {
+    id: "YK-HTL-458",
+    name: "Omah Heritage Kotagede",
+    category: "Butik",
+    stars: 3,
+    lat: -7.8108,
+    lng: 110.3882,
+    address: "Jl. Mondorakan No.5, Purbayan",
+    kecamatan: "Kotagede",
+    rooms: 12,
+    capacity: 48,
+    phone: "(0274) 385456",
+    distance_tugu: "4.2 km dari Tugu",
+    dist_malio: "4.0 km",
+    dist_kraton: "3.1 km",
+    photo: PHOTOS.butik[0],
+    landuse: ["Kawasan Heritage", "Kawasan Bersejarah"],
+    geodesign: 8.0,
+    connectivity: 65,
+    serviceLoad: 40,
+    notes:
+      "Homestay heritage bekas rumah pengrajin perak. Wisata edukasi kerajinan tersedia.",
+  },
 
-  /* ── BINTANG 2 ── */
+  /* ═══ BINTANG 2 ════════════════════════════════════════ */
   {
     id: "YK-HTL-438",
     name: "Fave Hotel Malioboro",
@@ -922,7 +1204,7 @@ const HOTELS = [
     connectivity: 95,
     serviceLoad: 84,
     notes:
-      "Hotel budget dengan occupancy tinggi. Ketergantungan tinggi pada wisata massal kawasan Malioboro.",
+      "Hotel budget occupancy tinggi. Ketergantungan tinggi pada wisata massal kawasan Malioboro.",
   },
   {
     id: "YK-HTL-439",
@@ -962,7 +1244,7 @@ const HOTELS = [
     distance_tugu: "0.3 km dari Tugu",
     dist_malio: "0.2 km",
     dist_kraton: "1.1 km",
-    photo: PHOTOS.b2[0],
+    photo: PHOTOS.b2[2],
     landuse: ["Kawasan Heritage", "Komersial/Jasa"],
     geodesign: 6.0,
     connectivity: 94,
@@ -985,7 +1267,7 @@ const HOTELS = [
     distance_tugu: "0.3 km dari Tugu",
     dist_malio: "0.2 km",
     dist_kraton: "1.0 km",
-    photo: PHOTOS.b2[1],
+    photo: PHOTOS.b2[0],
     landuse: ["Kawasan Heritage", "Komersial/Jasa"],
     geodesign: 5.8,
     connectivity: 93,
@@ -1008,7 +1290,7 @@ const HOTELS = [
     distance_tugu: "2.5 km dari Tugu",
     dist_malio: "2.3 km",
     dist_kraton: "1.9 km",
-    photo: PHOTOS.b2[0],
+    photo: PHOTOS.b2[1],
     landuse: ["Kawasan Pariwisata", "Permukiman"],
     geodesign: 5.7,
     connectivity: 72,
@@ -1016,9 +1298,59 @@ const HOTELS = [
     notes:
       "Hotel kecil dengan taman tropis. Sasaran wisatawan independen yang mencari ketenangan.",
   },
+  {
+    id: "YK-HTL-459",
+    name: "Wisma Bahtera Yogyakarta",
+    category: "Bintang 2",
+    stars: 2,
+    lat: -7.8072,
+    lng: 110.3558,
+    address: "Jl. Parangtritis No.28, Mantrijeron",
+    kecamatan: "Mantrijeron",
+    rooms: 48,
+    capacity: 57,
+    phone: "(0274) 377100",
+    distance_tugu: "2.9 km dari Tugu",
+    dist_malio: "2.7 km",
+    dist_kraton: "2.3 km",
+    photo: PHOTOS.b2[2],
+    landuse: ["Kawasan Pariwisata", "Permukiman"],
+    geodesign: 5.5,
+    connectivity: 70,
+    serviceLoad: 50,
+    notes:
+      "Penginapan budget di koridor wisata Parangtritis. Fasilitas sederhana namun bersih.",
+  },
+
+  {
+    id: "YK-HTL-461",
+    name: "POP! Hotel Malioboro Yogyakarta",
+    category: "Bintang 2",
+    stars: 2,
+    lat: -7.7965,
+    lng: 110.367,
+    address: "Jl. Mangkubumi No.4, Gowongan",
+    kecamatan: "Jetis",
+    rooms: 110,
+    capacity: 88,
+    phone: "(0274) 568900",
+    distance_tugu: "0.6 km dari Tugu",
+    dist_malio: "0.4 km",
+    dist_kraton: "1.0 km",
+    photo: PHOTOS.b2[1],
+    landuse: ["Kawasan Heritage", "Komersial/Jasa"],
+    geodesign: 6.0,
+    connectivity: 92,
+    serviceLoad: 82,
+    notes:
+      "Budget chain hotel sangat dekat Malioboro. Occupancy tinggi sepanjang tahun.",
+  },
 ];
 
-/* Kecamatan summary auto-built */
+/* ── Hitung WSM untuk setiap hotel ─────────────────────── */
+const HOTELS = HOTELS_RAW.map((h) => ({ ...h, wsm: calcWSM(h) }));
+
+/* ── Statistik ───────────────────────────────────────────── */
 const KECAMATAN_STATS = (() => {
   const m = {};
   HOTELS.forEach((h) => {
@@ -1029,7 +1361,6 @@ const KECAMATAN_STATS = (() => {
     .map(([name, count]) => ({ name, count }));
 })();
 
-/* Category summary */
 const CAT_STATS = (() => {
   const m = {};
   HOTELS.forEach((h) => {
@@ -1037,3 +1368,6 @@ const CAT_STATS = (() => {
   });
   return m;
 })();
+
+/* ── Ranking WSM (tertinggi ke terendah) ─────────────────── */
+const WSM_RANKING = [...HOTELS].sort((a, b) => b.wsm - a.wsm);
